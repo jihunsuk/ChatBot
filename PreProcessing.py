@@ -1,7 +1,8 @@
 import os
 import re
 
-path_dir = "./data/origin_data"
+path_dir = "./data/origin_data/FromGomPlayer"
+path_dir2 = "./data/origin_data/FromithubKorean"
 file_list = os.listdir(path_dir)
 file_list.sort()
 

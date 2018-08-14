@@ -35,9 +35,8 @@ class Seq2Seq:
             self.context_states.append(enc_states)
 
         with tf.variable_scope('context'):
-            context_input = tf.reshape(self.context_states, [-1, len(self.context_states[0]), self.n_hidden])
+            context_input = tf.reshape(self.context_states, [26, -1, self.n_hidden])
             outputs, context_states = tf.nn.dynamic_rnn(context_cell, context_input, dtype=tf.float32)
-            context_states = tf.reshape(context_states, [-1,len(self.context_states[0]), self.n_hidden])
 
         with tf.variable_scope('decode'):
             outputs, dec_states = tf.nn.dynamic_rnn(dec_cell, self.dec_input, dtype=tf.float32,
@@ -76,7 +75,7 @@ class Seq2Seq:
         return session.run([self.train_op, self.cost],
                            feed_dict={self.enc_input: enc_input,
                                       self.dec_input: dec_input,
-                                      self.targets: targets})
+                                      self.targets: targets}), self.context_states
 
     def test(self, session, enc_input, dec_input, targets):
         prediction_check = tf.equal(self.outputs, self.targets)

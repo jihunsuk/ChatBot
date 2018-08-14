@@ -28,7 +28,7 @@ def train(dialog, batch_size=100, epoch=100):
         total_batch = int(math.ceil(len(dialog.seq_data)/float(batch_size)))
         for step in range(total_batch * epoch):
             enc_input, dec_input, targets = dialog.next_batch(batch_size)
-            _, loss = model.train(sess, enc_input, dec_input, targets)
+            [_, loss], a = model.train(sess, enc_input, dec_input, targets)
             if step % 100 == 0:
                 print('cost = ', loss)
 
@@ -50,11 +50,8 @@ def test(dialog, batch_size=100):
         model.saver.restore(sess, ckpt.model_checkpoint_path)
 
         enc_input, dec_input, targets = dialog.next_batch(batch_size)
-        #print(np.array(enc_input).shape)
-        print(len(enc_input))
+
         expect, outputs, accuracy, a = model.test(sess, enc_input, dec_input, targets)
-        print(np.array(a).shape)
-        print(np.array(a[0]).shape)
         expect = dialog.decode(expect)
         outputs = dialog.decode(outputs)
 
@@ -71,8 +68,8 @@ def test(dialog, batch_size=100):
 
 def main(_):
     dialog = Dialogue('./data/chat.log')
-    train(dialog, epoch=1000)   # 학습
-    #test(dialog)               # 테스트
+    #train(dialog, epoch=1000)   # 학습
+    test(dialog)               # 테스트
 
 if __name__ == "__main__":
     tf.app.run()

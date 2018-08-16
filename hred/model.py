@@ -13,7 +13,6 @@ class Seq2Seq:
         # one_hot이기 때문에 [batch_size, words_len, vocab_size]
         self.enc_input = tf.placeholder(tf.float32, [None, None, self.vocab_size])
         self.dec_input = tf.placeholder(tf.float32, [None, None, self.vocab_size])
-        self.context_states = []
         self.targets = tf.placeholder(tf.int64, [None, None])   # [batct_size, words_len]
 
         # 학습 총 회수
@@ -32,15 +31,23 @@ class Seq2Seq:
         # encode, context, decode 구축
         with tf.variable_scope('encode'):
             outputs, enc_states = tf.nn.dynamic_rnn(enc_cell, self.enc_input, dtype=tf.float32)
-            self.context_states.append(enc_states)
 
+        #enc_states = tf.concat([enc_states[0][0], enc_states[0][1]], 1)
+        print('enc_states: ', enc_states)
         with tf.variable_scope('context'):
-            context_input = tf.reshape(self.context_states, [26, -1, self.n_hidden])
+            #context_input = tf.reshape(enc_states, [-1, 1, self.n_hidden*2])
+            context_input = tf.reshape(enc_states, [-1, 1, self.n_hidden])
+            print('context_input : ', context_input)
             outputs, context_states = tf.nn.dynamic_rnn(context_cell, context_input, dtype=tf.float32)
 
+        print('context rnn outputs :', outputs)
+        outputs = tf.reshape(outputs, [-1, self.n_hidden])
+        print('reshaped context rnn outputs :', outputs)
+
+        print(outputs)
         with tf.variable_scope('decode'):
             outputs, dec_states = tf.nn.dynamic_rnn(dec_cell, self.dec_input, dtype=tf.float32,
-                                                    initial_state=context_states)
+                                                    initial_state=(outputs,))
 
         # 학습 모델 구축
         self.logits, self.cost, self.train_op = self.build_ops(outputs, self.targets)
@@ -49,17 +56,18 @@ class Seq2Seq:
 
 
     def cell(self, output_keep_prob):
-        rnn_cell = tf.nn.rnn_cell.BasicLSTMCell(self.n_hidden)
+        rnn_cell = tf.nn.rnn_cell.GRUCell(self.n_hidden)
+        # rnn_cell = tf.nn.rnn_cell.BasicLSTMCell(self.n_hidden)
         rnn_cell = tf.nn.rnn_cell.DropoutWrapper(rnn_cell, output_keep_prob=output_keep_prob)
         return rnn_cell
 
     def build_cells(self, output_keep_prob=0.5):
         enc_cell = tf.nn.rnn_cell.MultiRNNCell([self.cell(output_keep_prob)
-                                                for _ in range(self.n_layers)])
+                                                for _ in range(1)])
         dec_cell = tf.nn.rnn_cell.MultiRNNCell([self.cell(output_keep_prob)
-                                                for _ in range(self.n_layers)])
+                                                for _ in range(1)])
         context_cell = tf.nn.rnn_cell.MultiRNNCell([self.cell(output_keep_prob)
-                                                for _ in range(self.n_layers)])
+                                                for _ in range(1)])
         return enc_cell, dec_cell, context_cell
 
     def build_ops(self, outputs, targets):
@@ -75,7 +83,7 @@ class Seq2Seq:
         return session.run([self.train_op, self.cost],
                            feed_dict={self.enc_input: enc_input,
                                       self.dec_input: dec_input,
-                                      self.targets: targets}), self.context_states
+                                      self.targets: targets})
 
     def test(self, session, enc_input, dec_input, targets):
         prediction_check = tf.equal(self.outputs, self.targets)

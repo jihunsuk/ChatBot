@@ -18,17 +18,19 @@ class chatbot:
         self.model.saver.restore(self.sess, ckpt.model_checkpoint_path)
 
     def run(self):
-        sys.stdout.write("> ")
-        sys.stdout.flush()
-        line = sys.stdin.readline()
+        #sys.stdout.write("> ")
+        #sys.stdout.flush()
+        #line = sys.stdin.readline()
+        line = input(">")
 
         while line:
             print(self.get_replay(line.strip())) # 응답
 
-            sys.stdout.write("\n> ")
-            sys.stdout.flush()
+            #sys.stdout.write("\n> ")
+            #sys.stdout.flush()
 
-            line = sys.stdin.readline()
+            #line = sys.stdin.readline()
+            line = input(">")
 
     def _decode(self, enc_input, dec_input):
         if type(dec_input) is np.ndarray:
@@ -61,7 +63,7 @@ class chatbot:
 
         return reply
 
-path = './data/chat.log'
+path = 'chat.log'
 
 def main(_):
     print("깨어나는 중 입니다. 잠시만 기다려주세요...\n")

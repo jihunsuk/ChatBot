@@ -1,6 +1,7 @@
 import re
 import numpy as np
 import math
+import tensorflow as tf
 
 class Dialogue:
 
@@ -11,8 +12,10 @@ class Dialogue:
         self.voc_dict = {voc: i for i, voc in enumerate(self.voc_arr)}
         self.voc_size = len(self.voc_dict)
         self.seq_data = self.make_seq_data()
-        self.max_output_len = 20    # 출력값 최대길이
+        self.input_max_len = max([len(self.seq_data[i]) for i in range(0, len(self.seq_data), 2)])+1
+        self.output_max_len = max([len(self.seq_data[i+1]) for i in range(0, len(self.seq_data), 2)])+1
 
+        self.word_embedding_matrix = self.make_word_embedding_matrix()
         self.index_in_epoch = 0
 
     # 파일로부터 문장을 읽어온다.
@@ -20,6 +23,15 @@ class Dialogue:
         with open(path, 'r', encoding='utf-8') as f:
             sentences = [line.strip() for line in f]
         return sentences
+
+    # 단어용 벡터 맥트릭스
+    def make_word_embedding_matrix(self, embedding_dims=20):
+        init_width = 1/embedding_dims
+        word_embedding_matrix = tf.Variable(
+            tf.random_uniform([self.voc_size, embedding_dims], -init_width, init_width, dtype=tf.float32),
+            name="embeddings",
+            dtype=tf.float32)
+        return word_embedding_matrix
 
     # 문자열로 바꾸어준다.
     def decode(self, indices, string=False):
@@ -90,26 +102,13 @@ class Dialogue:
 
         return seq_data
 
-    # batch_set에 있는 입력과 출력의 최대 길이를 반환
-    def max_len(self, batch_set):
-        max_len_input = 0
-        max_len_output = 0
-
-        for i in range(0, len(batch_set), 2):
-            len_input = len(batch_set[i])
-            len_output = len(batch_set[i+1])
-            if len_input > max_len_input:
-                max_len_input = len_input
-            if len_output > max_len_output:
-                max_len_output = len_output
-
-        return max_len_input, max_len_output + 1
-
     # batct_size만큼 입력데이터를 반환
     def next_batch(self, batch_size):
         enc_batch = []
         dec_batch = []
         target_batch = []
+        enc_length = []
+        dec_length = []
 
         start = self.index_in_epoch
 
@@ -119,15 +118,16 @@ class Dialogue:
             self.index_in_epoch = 0
 
         batch_set = self.seq_data[start:start + batch_size]
-        max_len_input, max_len_output = self.max_len(batch_set)
         for i in range(0, len(batch_set) - 1, 2):
-            enc, dec, tar = self.transform(batch_set[i], batch_set[i+1], max_len_input, max_len_output)
+            enc, dec, tar = self.transform(batch_set[i], batch_set[i+1], self.input_max_len, self.output_max_len)
 
             enc_batch.append(enc)
             dec_batch.append(dec)
             target_batch.append(tar)
+            enc_length.append(len(batch_set[i]))
+            dec_length.append(len(batch_set[i+1])+1)
 
-        return enc_batch, dec_batch, target_batch
+        return enc_batch, enc_length, dec_batch, dec_length, target_batch, len(batch_set)
 
     # 입력과 출력을 변환
     def transform(self, input, output, max_len_input, max_len_output):
@@ -136,12 +136,6 @@ class Dialogue:
         enc_input = self.pad(input, max_len_input)
         dec_input = self.pad(output, max_len_output, start=True)
         target = self.pad(output, max_len_output, eos=True)
-
-        # 인코더의 입력을 뒤집는다.
-        enc_input.reverse()
-
-        enc_input = np.eye(self.voc_size)[enc_input]
-        dec_input = np.eye(self.voc_size)[dec_input]
 
         return enc_input, dec_input, target
 

@@ -10,8 +10,8 @@ sys.path.insert(0, '/')
 from model import Seq2Seq
 from Dialogue import Dialogue
 
-def train(dialog, batch_size=10, epoch=100):
-    model = Seq2Seq(dialog.voc_size)
+def train(dialog, batch_size=100, epoch=100):
+    model = Seq2Seq(dialog.input_max_len, dialog.output_max_len, dialog.voc_size, dialog.word_embedding_matrix, True)
 
     with tf.Session() as sess:
 
@@ -25,11 +25,11 @@ def train(dialog, batch_size=10, epoch=100):
             sess.run(tf.global_variables_initializer())
 
         # 학습시작.
-        print(len(dialog.seq_data))
         total_batch = int(math.ceil(len(dialog.seq_data)/float(batch_size)))
         for step in range(total_batch * epoch):
-            enc_input, dec_input, targets = dialog.next_batch(batch_size)
-            _, loss = model.train(sess, enc_input, dec_input, targets)
+            enc_input, enc_length, dec_input, dec_length, targets = dialog.next_batch(batch_size)
+
+            _, loss = model.train(sess, enc_input, enc_length, dec_input, dec_length, targets)
             if step % 100 == 0:
                 print('cost = ', loss)
 
@@ -39,10 +39,10 @@ def train(dialog, batch_size=10, epoch=100):
 
         print('최적화 완료!')
 
-def test(dialog, batch_size=10):
+def test(dialog, batch_size=100):
     print("\n=== 예측 테스트 ===")
 
-    model = Seq2Seq(dialog.voc_size)
+    model = Seq2Seq(dialog.input_max_len, dialog.output_max_len, dialog.voc_size, dialog.word_embedding_matrix, False)
 
     with tf.Session() as sess:
         # 모델을 읽어온다.
@@ -50,8 +50,8 @@ def test(dialog, batch_size=10):
         print("다음 파일에서 모델을 읽는 중 입니다..", ckpt.model_checkpoint_path)
         model.saver.restore(sess, ckpt.model_checkpoint_path)
 
-        enc_input, dec_input, targets = dialog.next_batch(batch_size)
-        expect, outputs, accuracy, a = model.test(sess, enc_input, dec_input, targets)
+        enc_input, enc_length, dec_input, dec_length, targets = dialog.next_batch(batch_size)
+        expect, outputs, accuracy = model.test(sess, enc_input, enc_length, dec_input, dec_length, targets)
         expect = dialog.decode(expect)
         outputs = dialog.decode(outputs)
 
@@ -67,9 +67,10 @@ def test(dialog, batch_size=10):
         print("    예측값:", ' '.join(outputs))
 
 def main(_):
-    dialog = Dialogue('chat.log')
-    train(dialog, epoch=1000)   # 학습
-    #test(dialog)               # 테스트
+    dialog = Dialogue('./data/chat.log')
+
+    #train(dialog, epoch=1000)   # 학습
+    test(dialog)               # 테스트
 
 if __name__ == "__main__":
     tf.app.run()
